@@ -1,0 +1,30 @@
+# Jarvis — requirements
+# Core (required): only these three. Everything else is optional
+# and Jarvis degrades gracefully when it is missing.
+requests>=2.31
+PyYAML>=6.0
+psutil>=5.9
+
+# --- Optional: voice output (offline) ---
+# pyttsx3>=2.90
+
+# --- Optional: voice output (natural cloud voices, free, needs internet) ---
+# edge-tts>=6.1
+
+# --- Optional: speech recognition ---
+# SpeechRecognition>=3.10   # Google web speech (free, needs internet)
+# faster-whisper>=1.0       # local offline STT (CPU-friendly "tiny" model)
+# openwakeword>=0.6          # local wake word ("hey_jarvis" built in)
+# pvporcupine>=3.0          # wake word alternative (needs free access key)
+
+# --- Optional: animated HUD ---
+# PyQt6>=6.5
+
+# --- Optional: system control extras ---
+# screen-brightness-control>=0.23
+# pyperclip>=1.8
+# pycaw>=20230407; sys_platform == "win32"   # Windows volume control
+# Pillow>=10.0                              # screenshots
+
+# --- Optional: faster web search (falls back to HTML scraping) ---
+# ddgs>=9.0

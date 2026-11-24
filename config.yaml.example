@@ -1,0 +1,49 @@
+# Jarvis configuration — copy to `config.yaml` and edit.
+# Secrets NEVER go here; put API keys in `.env` (see .env.example).
+
+assistant:
+  name: "Jarvis"
+  owner: "Sir"
+  language: "en"            # BCP-47-ish code used for STT/TTS when supported
+  timezone: "Asia/Karachi"
+  city: "Lahore"            # default city for weather
+
+# Provider fallback chain, tried in order. First provider that
+# answers wins. All providers are optional — if none work, Jarvis
+# runs in offline mode (local tools still answer: time, calculator,
+# notes, reminders, files, weather via free APIs, web search).
+providers:
+  order: ["gemini", "openai", "ollama"]
+  gemini:
+    model: "gemini-2.5-flash"
+    api_key_env: "GEMINI_API_KEY"
+  openai:
+    model: "gpt-4o-mini"
+    base_url: "https://api.openai.com/v1"
+    api_key_env: "OPENAI_API_KEY"
+  ollama:
+    model: "llama3.2:3b"
+    base_url: "http://localhost:11434"
+
+voice:
+  tts_engine: "auto"        # auto | pyttsx3 | edge-tts | none
+  tts_rate: 175             # words per minute (pyttsx3)
+  tts_voice: ""             # substring match on voice name, "" = default
+  stt_engine: "auto"        # auto | whisper | google | none
+  wake_word: "off"          # off | hey_jarvis (openWakeWord / Porcupine)
+  push_to_talk: false       # hold Ctrl+Space to talk (GUI)
+  speak_replies: true       # speak LLM replies out loud when voice is on
+
+gui:
+  theme: "arc"              # arc | stark
+  refresh_ms: 1000          # systems panel refresh interval
+
+paths:
+  data_dir: "~/.jarvis"     # memory db, notes, reminders, tasks, logs
+
+memory:
+  max_history: 20           # conversation turns kept in the LLM prompt
+  remember_facts: true
+
+routines:
+  quiet_hours: ["23:00", "07:00"]  # no unprompted speech in this window

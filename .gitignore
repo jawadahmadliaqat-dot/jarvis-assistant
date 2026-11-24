@@ -1,0 +1,25 @@
+# Secrets — never commit these
+.env
+config.yaml
+
+# Runtime data (memory, notes, reminders, tasks, logs)
+data/
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
