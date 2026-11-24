@@ -89,6 +89,21 @@ class GateTest(unittest.TestCase):
         self.assertEqual(v2.decision, "ALLOW")
         self.assertTrue(v2.allowed)
 
+    def test_guest_cannot_run_command(self):
+        v = self.gate(role="GUEST").check(
+            "run_command", {"command": "echo hi", "confirm": True})
+        self.assertEqual(v.decision, "DENY")
+        self.assertFalse(v.allowed)
+
+    def test_run_command_needs_confirmation_even_for_owner(self):
+        g = self.gate(role="OWNER")
+        v = g.check("run_command", {"command": "echo hi"})
+        self.assertEqual(v.decision, "DENY")
+        self.assertFalse(v.allowed)
+        v2 = g.check("run_command", {"command": "echo hi", "confirm": True})
+        self.assertEqual(v2.decision, "ALLOW")
+        self.assertTrue(v2.allowed)
+
     def test_audit_mode_logs_but_never_blocks(self):
         v = self.gate(mode="audit", role="GUEST").check("set_volume", {"level": 10})
         self.assertEqual(v.decision, "DENY")   # the policy verdict itself

@@ -89,6 +89,7 @@ _BUILTIN_TOOL_MODULES = [
     "routines",
     "proactive",
     "doctor",
+    "coding",
 ]
 
 

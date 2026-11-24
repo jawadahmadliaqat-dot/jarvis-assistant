@@ -82,8 +82,13 @@ TOOL_INTENTS: dict[str, tuple[str, str]] = {
     "morning_briefing": ("Read", "Briefing"),
     "evening_summary": ("Read", "Briefing"),
     "say_hello": ("Read", "Social"),
+    "git_status": ("Read", "Files"),
+    "git_diff": ("Read", "Files"),
     # Write
     "add_note": ("Write", "Notes"),
+    "write_file": ("Write", "Files"),
+    "edit_file": ("Write", "Files"),
+    "git_commit": ("Write", "Files"),
     "remember_fact": ("Write", "Memory"),
     "add_reminder": ("Write", "Reminders"),
     "clipboard_copy": ("Write", "Clipboard"),
@@ -103,6 +108,8 @@ TOOL_INTENTS: dict[str, tuple[str, str]] = {
     "calculate": ("Execute", "Calculator"),
     "deep_research": ("Execute", "Research"),
     "fix_error": ("Execute", "Code"),
+    "run_command": ("Execute", "System"),
+    "run_tests": ("Execute", "Code"),
 }
 
 
