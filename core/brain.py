@@ -67,6 +67,17 @@ class Brain:
         self.providers: list[BaseProvider] = build_provider_chain(config)
         self.offline = OfflineProvider(config, registry)
         self.active_provider_name = "offline"
+        # AmbientOS trust gate (Layer 1 wiring): every tool execution is
+        # policy-checked via context-fabric before it runs. Construction
+        # must never break the assistant — on any failure the gate is
+        # disabled (mode off) and the failure is logged.
+        self.trust_gate = None
+        try:
+            from core.trustgate import TrustGate
+
+            self.trust_gate = TrustGate(config, self.logger)
+        except Exception as exc:  # noqa: BLE001 - gate failure is data
+            self.logger.warning("trust gate unavailable: %s", exc)
 
     # -- prompt ----------------------------------------------------------
     def _system_prompt(self) -> str:
@@ -167,7 +178,7 @@ class Brain:
                 }
             )
             for call in resp.tool_calls:
-                result = self.registry.execute(call.name, call.arguments)
+                result = self._execute_gated(call.name, call.arguments)
                 self.logger.info(
                     "tool %s(%s) -> %s",
                     call.name, call.arguments, result[:200],
@@ -229,6 +240,27 @@ class Brain:
             return None, "offline"
         return resp.text, provider.name
 
+    def _execute_gated(self, name: str, arguments: dict | None) -> str:
+        """Run a tool through the AmbientOS trust gate first.
+
+        In enforce mode a policy DENY blocks execution and the denial
+        reason is returned as the tool result, so the model can report
+        it plainly. In audit mode (default) the verdict is logged to
+        the Kyun? log and the tool still runs.
+        """
+        gate = getattr(self, "trust_gate", None)
+        if gate is not None:
+            verdict = gate.check(name, arguments)
+            if not verdict.allowed:
+                self.logger.info(
+                    "trust gate BLOCKED %s: %s", name, verdict.reason
+                )
+                return (
+                    f"Blocked by AmbientOS policy: {verdict.reason} "
+                    "Tell the user plainly that this was not done, and why."
+                )
+        return self.registry.execute(name, arguments)
+
     def tool_result_text(self, name: str, arguments: dict) -> str:
         """Execute one tool directly (used by CLI --tool and GUI buttons)."""
-        return self.registry.execute(name, arguments)
+        return self._execute_gated(name, arguments)

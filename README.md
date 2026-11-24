@@ -329,3 +329,37 @@ python main.py --once "calculate 12 * 8"   # offline smoke test
 AmbientOS Source-Available Licence v1.0 — see [LICENSE](LICENSE). Not affiliated with Marvel, Google, or
 FatihMakes. Use responsibly: Jarvis can open apps and change system settings
 only when you ask it to, and dangerous actions ask for confirmation first.
+
+## AmbientOS trust gate (Layer 1 wiring)
+
+Jarvis is Layer 1 (the face) of **AmbientOS**. Every tool execution now
+passes through `core/trustgate.py` before it runs:
+
+**Decide → Policy → Verify → Act.** The model proposes a tool call;
+the gate maps it to a policy intent (the Layer-1-owned M1 mapping,
+`TOOL_INTENTS`), asks **context-fabric** (Layer 2) for a signed
+`policy_decision`, verifies the token's signature + expiry and the
+capability membership (Layer 3 style), checks the device manifest
+(`ambient/manifest.json` — sensitive tools such as `lock_screen` and
+`fix_error` need `confirm=true`), and only then lets the tool run.
+Every verdict is appended to `~/.jarvis/ambient_kyun.jsonl` — the
+"Kyun?" reason log.
+
+Config (`config.yaml`):
+
+```yaml
+ambient:
+  trust_gate: audit   # off | audit (default, log-only) | enforce (block on DENY)
+  user_role: OWNER    # OWNER | GUEST | UNKNOWN
+  user_present: true
+  state: HOME         # HOME | SLEEP | AWAY
+```
+
+Policies live in `ambient/policies.json` (context-fabric's schema,
+evaluated by context-fabric's own `PolicyEvaluator` — Jarvis does not
+evaluate policies itself). The fabric is found via
+`$CONTEXT_FABRIC_PATH`, or automatically in the
+[ambience-os](https://github.com/jawadahmadliaqat-dot/ambience-os)
+layout (`layers/jarvis-assistant` next to `layers/context-fabric`).
+Signing uses context-fabric's documented dev HMAC scheme unless
+`CONTEXT_FABRIC_SIGNING_KEY` is set.
