@@ -23,6 +23,9 @@ core/
   memory.py             SQLite memory: facts, conversation history, reminders
   brain.py              the tool-use loop (provider -> tool -> provider ...)
   tasks.py              persistent background tasks (JSON, resumable)
+  context.py            live context: time of day, system load, active window
+  routines.py           named scheduled routines (morning/evening, due tracking)
+  proactive.py          proactive alerts: reminders, low disk, finished tasks
 providers/
   base.py               Provider interface + ProviderResponse
   gemini.py             Google Gemini via REST (function calling)
@@ -45,6 +48,9 @@ tools/
   timecalc.py           time/date, safe calculator
   briefing.py           morning briefing (time, weather, reminders, news)
   research.py           deep research: multi-search, fetch, quote-check, report
+  routines.py           run_routine / list_routines tools
+  proactive.py          check_alerts tool (explicit proactive check)
+  doctor.py             coding doctor: traceback -> JSON patch -> backup -> verify
 gui/
   hud.py                PyQt6 command-center HUD (reactor, waveform, gauges, log)
 plugins/
@@ -123,8 +129,18 @@ SQLite at `<data_dir>/memory.db`:
   (`remember that ...` / the `remember_fact` tool).
 - `conversations(id, role, content, ts)` — full history; the brain injects
   the last N turns into the prompt (sliding window, `memory.max_history`).
-- `reminders(id, text, due_ts, done, created_ts)` — due reminders are
-  checked on every turn and announced.
+- `reminders(id, text, due_ts, done, created_ts, done_ts)` — due reminders
+  are checked on every turn and announced. `done_ts` records when a
+  reminder was completed (used by the evening summary).
+- `core/context.py` gathers live context for the system prompt: time of
+  day, CPU/RAM/disk, the foreground window (xdotool on Linux, Win32 API
+  on Windows — best-effort, omitted when undetectable), pending reminders,
+  running tasks. Only detected facts are injected; the prompt says so.
+- `core/routines.py` runs named routines from `config.yaml`
+  (`routines.definitions`); due = time passed today and not run today
+  (state in `routines_state.json`). `core/proactive.py` fires one-time
+  alerts (due reminders, low disk, finished tasks) with quiet-hours
+  suppression; state in `proactive_state.json`.
 
 Notes live in `<data_dir>/notes.json` (human-readable, easy to back up).
 Background tasks live in `<data_dir>/tasks.json`.
@@ -163,12 +179,28 @@ knowing).
 4. Write a cited Markdown report to `data/research/<slug>.md` and return
    its path + a short summary.
 
-## GUI (HUD)
+## Coding doctor
+
+`tools/doctor.py` (`fix_error` tool, `jarvis --fix FILE`): parses a
+traceback for file/line, reads the file (only under the working dir,
+home, or /tmp — system paths are refused), asks the LLM for a minimal
+JSON patch (`{explanation, edits[]}` with 1-based line ranges), writes
+a `.bak` backup first, applies the patch bottom-up, then verifies
+(`python -m py_compile` for `.py`, or a user-supplied command) and
+reports PASS/FAIL. Patches that delete lines or touch >50 lines need
+confirmation; a malformed or low-confidence reply applies nothing.
+Offline (no LLM provider) it says so honestly and touches nothing.
+The LLM never picks the verification command and never runs shell
+commands itself.
 
 `gui/hud.py` (PyQt6, optional). One window:
 
 - **Reactor** — QPainter-drawn rotating rings + pulsing core; colour =
   state (cyan idle, amber listening, green thinking, orange speaking).
+- **Avatar** — a cute 2D cartoon face (`AvatarWidget`, drawn in code):
+  blinks on its own, mouth opens/closes with speech amplitude, and its
+  expression follows the state. No image assets. Honest limit: amplitude
+  simulation, not phoneme-perfect lip-sync.
 - **Waveform** — live audio-level bars while speaking/listening.
 - **Systems panel** — CPU %, RAM %, disk, uptime (psutil), provider in use.
 - **Log** — timestamped transcript of everything Jarvis does.

@@ -7,6 +7,10 @@ Usage:
     python main.py --voice          microphone loop (needs STT/TTS)
     python main.py --gui            animated HUD (needs PyQt6)
     python main.py --briefing       morning briefing and exit
+    python main.py --routine NAME   run a named routine and exit
+    python main.py --routines       list configured routines
+    python main.py --check          check for proactive alerts and exit
+    python main.py --fix FILE       fix an error in a file (needs an LLM)
     python main.py --research "..." deep research report
     python main.py --task "..."     start a background task
     python main.py --tasks          list background tasks
@@ -52,7 +56,7 @@ def bootstrap(config_path: str | None = None):
         "Jarvis %s started. Tools: %d. Providers: %s.",
         __version__, len(registry.all_tools()), config.provider_order,
     )
-    return config, logger, memory, registry, brain, tasks
+    return config, logger, memory, registry, brain, tasks, context
 
 
 def make_task_runner(context):
@@ -132,6 +136,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--once", metavar="TEXT", help="one command, print reply, exit")
     parser.add_argument("--speak", action="store_true", help="speak replies (text/once mode)")
     parser.add_argument("--briefing", action="store_true", help="morning briefing and exit")
+    parser.add_argument("--routine", metavar="NAME", help="run a named routine and exit")
+    parser.add_argument("--routines", action="store_true", help="list configured routines and exit")
+    parser.add_argument("--check", action="store_true", help="check for proactive alerts and exit")
+    parser.add_argument("--fix", metavar="FILE", help="fix an error in a file (needs an LLM; offline says so)")
+    parser.add_argument("--error", metavar="TEXT", help="error traceback text for --fix")
+    parser.add_argument("--verify", metavar="CMD", help="verification command for --fix")
+    parser.add_argument("--confirm", action="store_true", help="confirm applying a risky fix with --fix")
     parser.add_argument("--research", metavar="TOPIC", help="deep research report and exit")
     parser.add_argument("--task", metavar="DESC", help="start a background task")
     parser.add_argument("--tasks", action="store_true", help="list background tasks")
@@ -142,12 +153,49 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Jarvis {__version__}")
         return 0
 
-    config, _logger, _memory, _registry, brain, tasks = bootstrap(args.config)
-    context = {"config": config, "memory": _memory, "data_dir": config.data_dir,
-               "brain": brain, "tasks": tasks}
+    config, _logger, _memory, _registry, brain, tasks, context = bootstrap(args.config)
 
     if args.briefing:
         print(brain.tool_result_text("morning_briefing", {}))
+        return 0
+    if args.routines:
+        from core.routines import RoutineRunner
+
+        print(RoutineRunner(config, _registry, context).list_routines())
+        return 0
+    if args.routine:
+        from core.routines import RoutineRunner
+
+        print(RoutineRunner(config, _registry, context).run(args.routine))
+        return 0
+    if args.check:
+        from core.proactive import ProactiveChecker
+
+        alerts = ProactiveChecker(
+            config, _memory, tasks=tasks
+        ).check(respect_quiet_hours=False)
+        if alerts:
+            print("\n".join(alerts))
+        else:
+            print("Nothing needs your attention right now.")
+        return 0
+    if args.fix:
+        import subprocess
+
+        from tools.doctor import fix_error
+
+        error = (args.error or "").strip()
+        if not error:
+            # No traceback given: compile the file and use its error.
+            result = subprocess.run(
+                [sys.executable, "-m", "py_compile", args.fix],
+                capture_output=True, text=True,
+            )
+            error = (result.stdout + result.stderr).strip()
+            if result.returncode == 0:
+                print(f"{args.fix} compiles cleanly — nothing to fix.")
+                return 0
+        print(fix_error(context, error, args.fix, args.verify, args.confirm))
         return 0
     if args.research:
         from tools.research import deep_research

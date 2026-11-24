@@ -46,6 +46,7 @@ Rules:
 - You do not know the future. Weather, news and prices come from tools.
 
 Today is {today}. Current time: {now}. Timezone: {tz}.
+{context_block}
 {assistant_facts}
 Your tools: {tool_names}.
 """
@@ -76,12 +77,24 @@ class Brain:
             if facts
             else "You have no saved facts about the user yet."
         )
+        # Live context: only what was actually detected, right now.
+        context_block = ""
+        try:
+            from core.context import gather_context, render_context_block
+
+            tasks = getattr(self, "task_manager", None)
+            context_block = render_context_block(
+                gather_context(self.config, self.memory, tasks=tasks)
+            )
+        except Exception:  # noqa: BLE001 - context is best-effort
+            context_block = ""
         return SYSTEM_PROMPT_TEMPLATE.format(
             name=self.config.assistant_name,
             owner=self.config.owner,
             today=now.strftime("%A, %Y-%m-%d"),
             now=now.strftime("%H:%M:%S"),
             tz=self.config.timezone,
+            context_block=context_block,
             assistant_facts=facts_block,
             tool_names=", ".join(t.name for t in self.registry.all_tools()),
         )
@@ -200,6 +213,22 @@ class Brain:
         return "\n".join(results)
 
     # -- one-shot helpers --------------------------------------------------
+    def ask_llm(self, system: str, user: str) -> tuple[str | None, str]:
+        """One LLM call without tools.
+
+        Returns (text, provider_name), or (None, "offline") when no real
+        provider answered. Used by tools that need the model directly
+        (e.g. the coding doctor) instead of the full tool-use loop.
+        """
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        resp, provider = self._chat_with_fallback(messages, [])
+        if provider is self.offline or not (resp.text or "").strip():
+            return None, "offline"
+        return resp.text, provider.name
+
     def tool_result_text(self, name: str, arguments: dict) -> str:
         """Execute one tool directly (used by CLI --tool and GUI buttons)."""
         return self.registry.execute(name, arguments)

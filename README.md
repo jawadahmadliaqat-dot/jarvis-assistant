@@ -56,6 +56,18 @@ no code with them and is not affiliated with Marvel, Google, or FatihMakes.
 
 ## Features
 
+- **Coding doctor** — paste a traceback or point at a file and Jarvis
+  diagnoses it, backs the file up (`.bak`), applies a minimal patch and
+  verifies it (`py_compile` or your command). Needs an LLM (Gemini/Ollama);
+  offline it says so and applies nothing.
+- **Routines** — named schedules in config (`morning` 07:00 briefing,
+  `evening` 21:30 day-summary); run with `python main.py --routine morning`.
+- **Proactive alerts** — Jarvis notices due reminders, low disk, and
+  finished background tasks without being asked (once each, never in
+  quiet hours); check any time with `python main.py --check`.
+- **Context-aware replies** — the brain knows the time of day, system
+  load, active window (when detectable) and pending reminders, so it can
+  say "it's 2am, time to sleep" naturally. Only detected facts are used.
 - **Talk or type** — microphone (wake word `hey_jarvis`, push-to-talk, or
   continuous listen) and a text command box, in the CLI and the HUD.
 - **Real tool use** — the LLM decides which tool to call, Jarvis executes
@@ -74,6 +86,9 @@ no code with them and is not affiliated with Marvel, Google, or FatihMakes.
   skill on next launch. Two examples included.
 - **Animated HUD** — reactor core, waveform, CPU/RAM gauges, live log
   (PyQt6, optional — CLI works without it).
+- **Talking cartoon avatar** — a cute 2D face in the HUD: it blinks,
+  its mouth moves while it speaks, and its expression follows the state
+  (idle, listening, thinking, speaking). Drawn in code, no image files.
 
 ---
 
@@ -114,6 +129,11 @@ python main.py --once "what time is it"  # one command, print reply, exit
 python main.py --voice                  # microphone loop (needs STT/TTS)
 python main.py --gui                    # animated HUD
 python main.py --briefing               # morning briefing and exit
+python main.py --routine morning          # run a named routine and exit
+python main.py --routines                 # list configured routines
+python main.py --check                    # proactive alerts and exit
+python main.py --fix broken.py            # fix an error in a file (needs LLM)
+python main.py --fix broken.py --error "Traceback..." --verify "pytest -q"
 python main.py --research "fusion power"  # deep research report
 python main.py --tasks                  # list background tasks
 python main.py --task "research quantum batteries"  # start background task
@@ -140,6 +160,58 @@ cp .env.example .env
 
 Provider order is a fallback chain: Gemini → OpenAI-compatible → Ollama →
 offline. Set `providers.order` to change it, or leave a provider out.
+
+## Routines & proactive alerts
+
+Routines live in `config.yaml` under `routines.definitions` — a name, a time
+of day, and actions (tool calls or spoken lines). Defaults: `morning` at
+07:00 (briefing) and `evening` at 21:30 (day-summary). A routine is due
+once its time has passed and it has not run yet today.
+
+```bash
+python main.py --routine morning    # run now
+python main.py --routines           # list them
+python main.py --check              # anything needing attention?
+```
+
+Jarvis also checks proactively (voice loop, every 5 minutes by default):
+due reminders, disk below 5 GB free, and background tasks that finished
+in the last 24 hours. Each alert fires once per trigger and never during
+quiet hours (`routines.quiet_hours`, default 23:00–07:00).
+
+## Coding doctor
+
+```bash
+python main.py --fix broken.py                          # finds the error itself
+python main.py --fix broken.py --error "Traceback..."    # with a pasted traceback
+python main.py --fix broken.py --verify "pytest -q"      # custom verification
+```
+
+In chat, just say "fix the error in main.py" (or paste the traceback).
+How it works: the traceback's file/line is parsed, the file is read, the
+LLM returns a minimal JSON patch, Jarvis writes a `.bak` backup first,
+applies the patch, then verifies (`py_compile` for Python, or your command)
+and reports PASS/FAIL.
+
+Honest limits: small errors (typos, missing colons, bad imports) are
+auto-fixed; patches that delete code or touch more than 50 lines need your
+confirmation (`--confirm` / "yes, apply it"); if the model is unsure it
+suggests a fix instead of applying one. Smart fixing needs an LLM — a
+Gemini key or local Ollama. Offline, the doctor says so and touches nothing.
+
+## Talking cartoon avatar
+
+The HUD (`python main.py --gui`, needs PyQt6) now has a small cartoon
+assistant face above the reactor: round face, blinking eyes, a mouth
+that opens and closes while Jarvis speaks, and expressions for idle,
+listening, thinking, and speaking. It is drawn entirely in code
+(`gui/hud.py`, `AvatarWidget`) — no image files, no new dependencies.
+
+Honest limits: it is a 2D cartoon, not a 3D character. The mouth moves
+with speech amplitude (simulated rhythm scaled by the audio level),
+not phoneme-perfect lip-sync. While the offline voice engine
+(pyttsx3) speaks, the mouth holds its open pose; with edge-tts it
+animates freely.
 
 ---
 

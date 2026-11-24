@@ -24,6 +24,7 @@ _INTENT_PATTERNS: list[tuple[str, str, dict[str, Any]]] = [
     (r"\b(my notes|show notes|list notes)\b", "list_notes", {}),
     (r"\b(remind me|set a reminder)\b", "add_reminder", {}),
     (r"\b(my reminders|list reminders)\b", "list_reminders", {}),
+    (r"\b(check alerts|anything (i should|to) know|anything needing attention)\b", "check_alerts", {}),
     (r"\b(system|CPU|RAM|disk|battery)\b.*\b(usage|info|status)\b", "system_info", {}),
     (r"\bsearch (the web )?for\b|\bgoogle\b|\blook up\b", "web_search", {}),
 ]

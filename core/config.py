@@ -48,7 +48,19 @@ DEFAULTS = {
     "gui": {"theme": "arc", "refresh_ms": 1000},
     "paths": {"data_dir": "~/.jarvis"},
     "memory": {"max_history": 20, "remember_facts": True},
-    "routines": {"quiet_hours": ["23:00", "07:00"]},
+    "routines": {
+        "quiet_hours": ["23:00", "07:00"],
+        "definitions": [
+            {"name": "morning", "time": "07:00",
+             "actions": [{"tool": "morning_briefing"}]},
+            {"name": "evening", "time": "21:30",
+             "actions": [{"tool": "evening_summary"}]},
+        ],
+        "proactive": {
+            "disk_free_gb_warn": 5,
+            "check_interval_seconds": 300,
+        },
+    },
 }
 
 

@@ -86,6 +86,9 @@ _BUILTIN_TOOL_MODULES = [
     "timecalc",
     "briefing",
     "research",
+    "routines",
+    "proactive",
+    "doctor",
 ]
 
 

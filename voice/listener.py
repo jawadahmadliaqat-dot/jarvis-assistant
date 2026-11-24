@@ -15,7 +15,9 @@ from __future__ import annotations
 import datetime
 import logging
 import threading
+import time
 
+from core.context import in_quiet_hours
 from voice.stt import STT, VoiceUnavailable
 from voice.tts import TTS
 from voice.wakeword import WakeWord
@@ -55,6 +57,20 @@ class VoiceLoop:
                 )
         self._stop = threading.Event()
         self.on_state = None  # optional callback(state: str)
+        self._checker = None
+        try:
+            from core.proactive import ProactiveChecker
+
+            tasks = getattr(brain, "task_manager", None)
+            self._checker = ProactiveChecker(
+                config, brain.memory, tasks=tasks, logger=self.logger
+            )
+        except Exception as exc:  # noqa: BLE001 - proactive is optional
+            self.logger.warning("proactive checker unavailable: %s", exc)
+        self._last_check = 0.0
+        self._check_interval = float(
+            config.get("routines", "proactive", "check_interval_seconds", default=300)
+        )
 
     def stop(self) -> None:
         self._stop.set()
@@ -66,16 +82,21 @@ class VoiceLoop:
             self.on_state(state)
 
     def _in_quiet_hours(self) -> bool:
+        return in_quiet_hours(self.config)
+
+    def _check_proactive(self) -> None:
+        """Surface new alerts (once each, never in quiet hours)."""
+        if self._checker is None:
+            return
         try:
-            start_s, end_s = self.config.get("routines", "quiet_hours", default=["23:00", "07:00"])
-            start = datetime.datetime.strptime(start_s, "%H:%M").time()
-            end = datetime.datetime.strptime(end_s, "%H:%M").time()
-            now = datetime.datetime.now().time()
-            if start <= end:
-                return start <= now <= end
-            return now >= start or now <= end
-        except Exception:
-            return False
+            alerts = self._checker.check(respect_quiet_hours=True)
+        except Exception as exc:  # noqa: BLE001 - alerts must never kill the loop
+            self.logger.warning("proactive check failed: %s", exc)
+            return
+        for alert in alerts:
+            print(f"{self.config.assistant_name} (alert): {alert}")
+            if self.config.get("voice", "speak_replies", default=True):
+                self.tts.speak(alert)
 
     def run(self) -> None:
         if self.stt is None:
@@ -88,6 +109,9 @@ class VoiceLoop:
         print(f"{self.config.assistant_name} is listening. Say 'hey {self.config.assistant_name.lower()}'" if self.wake else f"{self.config.assistant_name} is listening (continuous). Ctrl+C to stop.")
         try:
             while not self._stop.is_set():
+                if time.time() - self._last_check >= self._check_interval:
+                    self._last_check = time.time()
+                    self._check_proactive()
                 if self.wake is not None:
                     self._set_state("idle")
                     if not self.wake.wait_for_wake():

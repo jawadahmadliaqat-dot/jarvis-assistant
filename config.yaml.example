@@ -47,3 +47,17 @@ memory:
 
 routines:
   quiet_hours: ["23:00", "07:00"]  # no unprompted speech in this window
+  # Named routines: a time of day + actions (tool calls or spoken lines).
+  # Run one with: python main.py --routine morning
+  definitions:
+    - name: morning
+      time: "07:00"
+      actions:
+        - {tool: morning_briefing}
+    - name: evening
+      time: "21:30"
+      actions:
+        - {tool: evening_summary}
+  proactive:
+    disk_free_gb_warn: 5       # alert when free disk drops below this (GB)
+    check_interval_seconds: 300  # voice-loop check cadence

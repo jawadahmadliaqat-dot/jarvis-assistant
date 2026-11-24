@@ -46,6 +46,11 @@ class Memory:
             """
         )
         self._conn.commit()
+        # Migration: track when a reminder was completed (for summaries).
+        cols = [r[1] for r in self._conn.execute("PRAGMA table_info(reminders)")]
+        if "done_ts" not in cols:
+            self._conn.execute("ALTER TABLE reminders ADD COLUMN done_ts REAL")
+            self._conn.commit()
 
     # -- facts ----------------------------------------------------------
     def remember_fact(self, key: str, value: str) -> None:
@@ -132,10 +137,25 @@ class Memory:
 
     def mark_reminder_done(self, reminder_id: int) -> bool:
         cur = self._conn.execute(
-            "UPDATE reminders SET done=1 WHERE id=?", (reminder_id,)
+            "UPDATE reminders SET done=1, done_ts=? WHERE id=?",
+            (time.time(), reminder_id),
         )
         self._conn.commit()
         return cur.rowcount > 0
+
+    def reminders_completed_since(self, ts: float) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM reminders "
+            "WHERE done=1 AND done_ts IS NOT NULL AND done_ts>=?",
+            (ts,),
+        ).fetchone()
+        return int(row["n"]) if row else 0
+
+    def messages_since(self, ts: float) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM conversations WHERE ts>=?", (ts,)
+        ).fetchone()
+        return int(row["n"]) if row else 0
 
     def close(self) -> None:
         self._conn.close()

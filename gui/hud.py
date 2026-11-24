@@ -1,8 +1,9 @@
 """Animated command-center HUD (PyQt6, optional).
 
-One window: an animated reactor core, a live waveform, system gauges
-(CPU/RAM/disk), a timestamped log, a command input, and controls. The
-brain runs in a worker thread so the UI never freezes.
+One window: a talking cartoon avatar, an animated reactor core, a live
+waveform, system gauges (CPU/RAM/disk), a timestamped log, a command
+input, and controls. The brain runs in a worker thread so the UI never
+freezes.
 
 If PyQt6 is not installed, `gui_available()` is False and main.py prints
 an install hint instead of crashing.
@@ -16,6 +17,20 @@ import math
 import random
 
 from tools.system import system_info
+
+
+def avatar_mouth_openness(level: float, t: float) -> float:
+    """Mouth openness (0..1) for a speaking avatar at time `t` (seconds).
+
+    Pure function (no Qt) so it is unit-testable: the mouth opens and
+    closes in a speech-like rhythm, scaled by the audio level. This is
+    amplitude simulation, not phoneme-perfect lip-sync.
+    """
+    level = max(0.0, min(1.0, level))
+    return max(0.0, min(1.0, level * (0.55 + 0.45 * math.sin(t * 7.0))))
+
+
+AVATAR_STATES = ("idle", "listening", "thinking", "speaking")
 
 
 def gui_available() -> bool:
@@ -36,6 +51,124 @@ if gui_available():
         "thinking": QColor(120, 255, 120),
         "speaking": QColor(255, 120, 40),
     }
+
+    class AvatarWidget(QWidget):
+        """A cute 2D cartoon assistant face, drawn with QPainter.
+
+        No image assets — just shapes. It blinks on its own, and its
+        expression follows the HUD state: idle (gentle smile), listening
+        (wide eyes, small "o" mouth), thinking (eyes glance up, flat
+        mouth), speaking (mouth opens/closes with the speech level).
+        The mouth is amplitude simulation, not phoneme-perfect lip-sync.
+        """
+
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.state = "idle"
+            self.level = 0.0
+            self._blink_until = 0.0
+            self._next_blink = 0.0
+            self.setMinimumSize(220, 200)
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self.update)
+            self._timer.start(50)
+
+        def set_state(self, state: str):
+            self.state = state if state in AVATAR_STATES else "idle"
+            self.update()
+
+        def set_level(self, level: float):
+            self.level = max(0.0, min(1.0, level))
+
+        def _blinking(self) -> bool:
+            now = datetime.datetime.now().timestamp()
+            if now >= self._next_blink:
+                self._blink_until = now + 0.12
+                self._next_blink = now + random.uniform(2.5, 5.0)
+            return now < self._blink_until
+
+        def paintEvent(self, event):  # noqa: N802 - Qt naming
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            w, h = self.width(), self.height()
+            cx, cy = w / 2, h / 2 - 6
+            face_r = min(w, h) / 2 - 14
+            painter.fillRect(self.rect(), QColor(8, 16, 28))
+
+            # State-coloured glow ring.
+            ring = STATE_COLORS[self.state]
+            painter.setPen(QPen(ring, 3))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(
+                int(cx - face_r - 6), int(cy - face_r - 6),
+                int(2 * face_r + 12), int(2 * face_r + 12),
+            )
+            # Face.
+            painter.setBrush(QColor(255, 217, 179))
+            painter.setPen(QPen(QColor(230, 180, 130), 2))
+            painter.drawEllipse(
+                int(cx - face_r), int(cy - face_r),
+                int(2 * face_r), int(2 * face_r),
+            )
+            # Hair tuft.
+            painter.setPen(QPen(QColor(60, 60, 90), 3))
+            for dx in (-18, 0, 18):
+                painter.drawLine(int(cx + dx), int(cy - face_r + 4),
+                                 int(cx + dx), int(cy - face_r - 10))
+            eye_y = cy - face_r * 0.25
+            eye_dx = face_r * 0.42
+            eye_rx, eye_ry = face_r * 0.20, face_r * 0.26
+            blinking = self._blinking()
+            look_up = self.state == "thinking"
+            for sx in (-1, 1):
+                ex = cx + sx * eye_dx
+                ey = eye_y - (face_r * 0.12 if look_up else 0)
+                if blinking:
+                    painter.setPen(QPen(QColor(60, 40, 20), 3))
+                    painter.drawLine(int(ex - eye_rx), int(ey),
+                                     int(ex + eye_rx), int(ey))
+                    continue
+                painter.setBrush(QColor(255, 255, 255))
+                painter.setPen(QPen(QColor(60, 40, 20), 2))
+                painter.drawEllipse(int(ex - eye_rx), int(ey - eye_ry),
+                                    int(2 * eye_rx), int(2 * eye_ry))
+                pupil_r = eye_rx * 0.55
+                px = ex + (sx * eye_rx * 0.25 if self.state == "listening" else 0)
+                py = ey - (eye_ry * 0.3 if look_up else 0)
+                painter.setBrush(QColor(30, 30, 40))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawEllipse(int(px - pupil_r), int(py - pupil_r),
+                                    int(2 * pupil_r), int(2 * pupil_r))
+                painter.setBrush(QColor(255, 255, 255))
+                painter.drawEllipse(int(px - pupil_r * 0.4), int(py - pupil_r * 0.5),
+                                    int(pupil_r * 0.5), int(pupil_r * 0.5))
+            # Blush.
+            painter.setBrush(QColor(255, 150, 150, 90))
+            painter.setPen(Qt.PenStyle.NoPen)
+            for sx in (-1, 1):
+                painter.drawEllipse(int(cx + sx * face_r * 0.62 - 10),
+                                    int(cy + face_r * 0.28 - 7), 20, 14)
+            # Mouth by state.
+            mouth_y = cy + face_r * 0.42
+            painter.setPen(QPen(QColor(120, 60, 40), 3))
+            if self.state == "speaking":
+                t = datetime.datetime.now().timestamp()
+                open_h = 4 + 26 * avatar_mouth_openness(self.level, t)
+                painter.setBrush(QColor(120, 40, 40))
+                painter.drawEllipse(int(cx - 14), int(mouth_y - open_h / 2),
+                                    28, int(open_h))
+            elif self.state == "listening":
+                painter.setBrush(QColor(120, 40, 40))
+                painter.drawEllipse(int(cx - 6), int(mouth_y - 6), 12, 12)
+            elif self.state == "thinking":
+                painter.drawLine(int(cx - 12), int(mouth_y),
+                                 int(cx + 12), int(mouth_y - 4))
+            else:  # idle smile
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawArc(int(cx - 16), int(mouth_y - 10), 32, 20, 200 * 16, 140 * 16)
+            painter.setPen(QPen(QColor(255, 255, 255), 2))
+            painter.drawText(int(cx - 30), int(cy + face_r + 22),
+                             f"{self.state.upper()}")
 
     class ReactorWidget(QWidget):
         """Rotating rings + pulsing core, coloured by state."""
@@ -167,6 +300,8 @@ if gui_available():
             root = QHBoxLayout(central)
 
             left = QVBoxLayout()
+            self.avatar = AvatarWidget()
+            left.addWidget(self.avatar)
             self.reactor = ReactorWidget()
             left.addWidget(self.reactor)
             self.wave = WaveformWidget()
@@ -223,6 +358,7 @@ if gui_available():
 
         def set_state(self, state: str):
             self.reactor.set_state(state)
+            self.avatar.set_state(state)
             self.state_label.setText(f"STATE: {state.upper()}")
 
         def _refresh_systems(self):
@@ -248,9 +384,11 @@ if gui_available():
             self.set_state("speaking")
             self.log(f"{self.config.assistant_name}: {reply}")
             self.wave.set_level(0.7)
+            self.avatar.set_level(0.7)
             if self.tts and not self.mute.isChecked():
                 self.tts.speak(reply)
             self.wave.set_level(0.1)
+            self.avatar.set_level(0.1)
             self.set_state("idle")
 
         def _run_tool(self, name: str, args: dict):
