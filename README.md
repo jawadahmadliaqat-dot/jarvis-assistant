@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey?logo=windows&logoColor=white" alt="Windows and Linux">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
+  <img src="https://img.shields.io/badge/License-Source--Available-blue" alt="Source-Available Licence">
   <img src="https://img.shields.io/badge/API%20key-optional-brightgreen" alt="No API key required">
   <img src="https://img.shields.io/badge/Voice-STT%20%2B%20TTS-orange" alt="Voice support">
 </p>
@@ -28,6 +28,7 @@ no code with them and is not affiliated with Marvel, Google, or FatihMakes.
 - [Features](#features)
 - [Quick start](#quick-start)
 - [Usage](#usage)
+- [Web HUD](#web-hud)
 - [Configuration](#configuration)
 - [Voice](#voice)
 - [Plugins](#plugins)
@@ -128,6 +129,7 @@ python main.py                          # interactive text chat
 python main.py --once "what time is it"  # one command, print reply, exit
 python main.py --voice                  # microphone loop (needs STT/TTS)
 python main.py --gui                    # animated HUD
+python main.py --web                    # Mark 57-style web HUD on localhost
 python main.py --briefing               # morning briefing and exit
 python main.py --routine morning          # run a named routine and exit
 python main.py --routines                 # list configured routines
@@ -215,6 +217,38 @@ animates freely.
 
 ---
 
+## Web HUD
+
+A Mark 57-style command center that runs in the browser — no PyQt6,
+no new dependencies, no build tools. The PyQt6 HUD still exists; this
+is an additional mode.
+
+```bash
+python main.py --web                # http://127.0.0.1:8765
+python main.py --web --web-port 8080
+```
+
+Three columns, like the video: **Systems** (live CPU / memory / disk /
+GPU gauges) + **Status** (uptime, processes, platform, engine, voice)
++ **Tasks** on the left; an animated geometric wireframe face with a
+waveform in the center; **Communications** log + **Controls** (morning
+briefing, hold to talk, background tasks, mute voice) on the right; a
+command box along the bottom. Commands go through the real Brain —
+the same tool-use loop as text mode — so `calculate 12 * 8` answers
+`96`, and the morning briefing button runs the real briefing.
+
+Honest limits: the face is an animated SVG drawing (CSS/JS), not a
+3D render — it pulses, rotates, blinks, and its mouth moves while
+Jarvis speaks, but it is 2D art. The page polls the server once a
+second (no websockets), so gauges and the log lag up to a second.
+Hold-to-talk uses the browser SpeechRecognition API (Chrome/Edge);
+if your browser has none, the button says so and you type instead —
+voice input is never faked. The server binds 127.0.0.1 only, so the
+page is reachable from your machine alone. Works with zero API keys
+(offline mode), like the CLI.
+
+---
+
 ## Voice
 
 | Piece | Default | Alternatives |
@@ -264,7 +298,7 @@ core/              config, brain (tool-use loop), memory, background tasks
 providers/         gemini, openai-compatible, ollama, offline
 voice/             stt, tts, wake word, listener
 tools/             search, weather, system, files, notes, reminders, research
-gui/               PyQt6 animated HUD
+gui/               PyQt6 animated HUD + web HUD (HTML/CSS/JS, stdlib server)
 plugins/           drop-in skills (two examples included)
 tests/             smoke tests
 ```
@@ -292,6 +326,6 @@ python main.py --once "calculate 12 * 8"   # offline smoke test
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Not affiliated with Marvel, Google, or
+AmbientOS Source-Available Licence v1.0 — see [LICENSE](LICENSE). Not affiliated with Marvel, Google, or
 FatihMakes. Use responsibly: Jarvis can open apps and change system settings
 only when you ask it to, and dangerous actions ask for confirmation first.

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS — Personal AI System</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-state="IDLE">
+<header id="topbar">
+  <div class="brand">
+    <span class="brand-dot" aria-hidden="true"></span>
+    <h1>JARVIS</h1>
+    <span class="brand-sub">PERSONAL AI SYSTEM</span>
+  </div>
+  <div class="top-right">
+    <span id="clock" title="Local time">--:--:--</span>
+    <span id="state-badge" class="badge">IDLE</span>
+    <span id="provider-label" class="provider">Provider: offline</span>
+  </div>
+</header>
+
+<main id="layout">
+  <!-- ================= LEFT ================= -->
+  <section class="col" id="col-left">
+    <div class="panel" id="systems">
+      <h2>SYSTEMS <span class="live">LIVE</span></h2>
+      <div class="gauge" id="gauge-cpu">
+        <div class="gauge-head"><span>CPU</span><span class="gauge-val">—</span></div>
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+      </div>
+      <div class="gauge" id="gauge-memory">
+        <div class="gauge-head"><span>MEMORY</span><span class="gauge-val">—</span></div>
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+      </div>
+      <div class="gauge" id="gauge-disk">
+        <div class="gauge-head"><span>DISK</span><span class="gauge-val">—</span></div>
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+      </div>
+      <div class="gauge" id="gauge-gpu">
+        <div class="gauge-head"><span>GPU</span><span class="gauge-val">—</span></div>
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="panel" id="status">
+      <h2>STATUS</h2>
+      <dl>
+        <div><dt>UPTIME</dt><dd id="stat-uptime">—</dd></div>
+        <div><dt>PROCESSES</dt><dd id="stat-processes">—</dd></div>
+        <div><dt>PLATFORM</dt><dd id="stat-platform">—</dd></div>
+        <div><dt>ENGINE</dt><dd id="stat-engine">—</dd></div>
+        <div><dt>VOICE</dt><dd id="stat-voice">—</dd></div>
+      </dl>
+    </div>
+
+    <div class="panel" id="tasks">
+      <h2>TASKS</h2>
+      <ul id="task-list"><li class="dim">No background tasks.</li></ul>
+    </div>
+  </section>
+
+  <!-- ================= CENTER ================= -->
+  <section class="col" id="col-center">
+    <div class="panel" id="voice-panel">
+      <h2>VOICE INTERFACE</h2>
+      <!-- Original SVG art: a geometric wireframe-style face. This is a
+           2D drawing with CSS/JS animation, not a 3D render. -->
+      <svg id="face" viewBox="0 0 400 400" role="img"
+           aria-label="Jarvis face, animated">
+        <defs>
+          <radialGradient id="faceGlow" cx="50%" cy="45%" r="65%">
+            <stop offset="0%" stop-color="#35c8ff" stop-opacity="0.20"/>
+            <stop offset="100%" stop-color="#35c8ff" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="200" cy="200" r="190" fill="url(#faceGlow)"/>
+        <circle class="ring ring-a" cx="200" cy="200" r="176"/>
+        <circle class="ring ring-b" cx="200" cy="200" r="158"/>
+        <g class="head" stroke="#35c8ff" fill="none" stroke-width="1.6">
+          <polygon points="200,62 296,96 328,188 300,296 200,338 100,296 72,188 104,96"/>
+          <line x1="200" y1="62" x2="200" y2="338"/>
+          <line x1="104" y1="96" x2="296" y2="96"/>
+          <line x1="72" y1="188" x2="328" y2="188"/>
+          <line x1="100" y1="296" x2="300" y2="296"/>
+          <line x1="200" y1="62" x2="104" y2="188"/>
+          <line x1="200" y1="62" x2="296" y2="188"/>
+          <line x1="200" y1="338" x2="104" y2="188"/>
+          <line x1="200" y1="338" x2="296" y2="188"/>
+        </g>
+        <g class="nodes" fill="#35c8ff">
+          <circle cx="200" cy="62" r="3.5"/><circle cx="296" cy="96" r="3.5"/>
+          <circle cx="328" cy="188" r="3.5"/><circle cx="300" cy="296" r="3.5"/>
+          <circle cx="200" cy="338" r="3.5"/><circle cx="100" cy="296" r="3.5"/>
+          <circle cx="72" cy="188" r="3.5"/><circle cx="104" cy="96" r="3.5"/>
+        </g>
+        <g class="brows" stroke="#35c8ff" stroke-width="2" stroke-linecap="round">
+          <line x1="128" y1="138" x2="180" y2="130"/>
+          <line x1="272" y1="138" x2="220" y2="130"/>
+        </g>
+        <g class="eye" id="eye-left" fill="#dff4ff">
+          <polygon points="138,158 176,150 186,172 150,184"/>
+        </g>
+        <g class="eye" id="eye-right" fill="#dff4ff">
+          <polygon points="262,158 224,150 214,172 250,184"/>
+        </g>
+        <polyline class="nose" points="200,200 191,244 209,244"
+                  fill="none" stroke="#35c8ff" stroke-width="1.6"/>
+        <rect id="mouth" x="160" y="285" width="80" height="6" rx="3"
+              fill="#ff8c1a"/>
+        <g class="circuit" stroke="#35c8ff" stroke-opacity="0.55" stroke-width="1.2">
+          <line x1="200" y1="24" x2="200" y2="44"/>
+          <line x1="200" y1="356" x2="200" y2="376"/>
+          <line x1="24" y1="200" x2="44" y2="200"/>
+          <line x1="356" y1="200" x2="376" y2="200"/>
+        </g>
+      </svg>
+      <div id="face-state">JARVIS — IDLE</div>
+      <div id="waveform" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ================= RIGHT ================= -->
+  <section class="col" id="col-right">
+    <div class="panel" id="comms">
+      <h2>COMMUNICATIONS <span class="live">LOG</span></h2>
+      <div id="comms-log"></div>
+    </div>
+
+    <div class="panel" id="controls">
+      <h2>CONTROLS</h2>
+      <button id="btn-briefing" type="button">☀ Morning briefing</button>
+      <button id="btn-talk" type="button">🎙 Hold to talk</button>
+      <button id="btn-tasks" type="button">▦ Background tasks</button>
+      <button id="btn-mute" type="button">🔇 Mute voice</button>
+      <p id="mic-note" class="dim" hidden>
+        Mic not available in this browser — type your command below.
+        (Voice input needs Chrome or Edge.)
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer id="bottombar">
+  <input id="command-input" type="text" autocomplete="off"
+         placeholder="Type a command or question…  (Enter to send)">
+  <button id="btn-send" type="button">Send</button>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

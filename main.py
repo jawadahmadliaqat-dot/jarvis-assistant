@@ -6,6 +6,7 @@ Usage:
     python main.py --once "..."     one command, print the reply, exit
     python main.py --voice          microphone loop (needs STT/TTS)
     python main.py --gui            animated HUD (needs PyQt6)
+    python main.py --web            Mark 57-style web HUD on localhost
     python main.py --briefing       morning briefing and exit
     python main.py --routine NAME   run a named routine and exit
     python main.py --routines       list configured routines
@@ -132,6 +133,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--config", help="path to config.yaml")
     parser.add_argument("--gui", action="store_true", help="animated HUD (needs PyQt6)")
+    parser.add_argument("--web", action="store_true",
+                        help="web HUD on localhost (no PyQt6 needed)")
+    parser.add_argument("--web-port", type=int, default=8765,
+                        help="port for --web (default 8765)")
     parser.add_argument("--voice", action="store_true", help="microphone loop")
     parser.add_argument("--once", metavar="TEXT", help="one command, print reply, exit")
     parser.add_argument("--speak", action="store_true", help="speak replies (text/once mode)")
@@ -260,6 +265,10 @@ def main(argv: list[str] | None = None) -> int:
 
             tts = TTS(engine=config.get("voice", "tts_engine", default="auto"))
         return run_hud(brain, config, tts=tts)
+    if args.web:
+        from gui.webserver import run_web_hud
+
+        return run_web_hud(brain, config, tasks=tasks, port=args.web_port)
     if args.voice:
         from voice.listener import VoiceLoop
 

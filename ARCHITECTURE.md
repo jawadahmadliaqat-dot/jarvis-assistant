@@ -53,6 +53,8 @@ tools/
   doctor.py             coding doctor: traceback -> JSON patch -> backup -> verify
 gui/
   hud.py                PyQt6 command-center HUD (reactor, waveform, gauges, log)
+  webserver.py          stdlib web HUD server (127.0.0.1, JSON API, no new deps)
+  web/                  web HUD page: index.html + style.css + app.js (local only)
 plugins/
   hello.py              example plugin (greeting tool)
   timer.py              example plugin (countdown timer tool)
@@ -209,6 +211,21 @@ commands itself.
 
 The brain runs in a `QThread` so the UI never freezes. If PyQt6 is absent,
 `--gui` prints a clear install hint and exits; CLI still works.
+
+## Web HUD
+
+`main.py --web` serves the same command center in the browser instead
+(`gui/webserver.py`, stdlib `ThreadingHTTPServer` on 127.0.0.1, default
+port 8765; `gui/web/` holds the page: `index.html` + `style.css` +
+`app.js`, all local, no CDN, no build tools). The page polls
+`/api/state` and `/api/log` once a second; `/api/command` runs the
+same `Brain.respond()` loop as the CLI, so commands behave identically
+in both HUDs. The face is an animated SVG drawing (rings, blinking
+eyes, mouth driven by speaking state), not a 3D render. Hold-to-talk
+uses the browser SpeechRecognition API when present and says so
+honestly when it is not. State is a single server-side value
+(IDLE / LISTENING / THINKING / SPEAKING); Brain calls are serialised
+behind one lock so a slow LLM reply never corrupts a poll.
 
 ## Plugins
 
