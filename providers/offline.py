@@ -109,10 +109,11 @@ class OfflineProvider(BaseProvider):
 
         return ProviderResponse(
             text=(
-                "I'm offline right now — no LLM provider is available "
-                "(no API key, and Ollama isn't running). I can still use "
-                "local tools: ask for the time, a calculation, the weather, "
-                "a web search, your notes or reminders, or the morning "
-                "briefing. Add a GEMINI_API_KEY to .env for the full brain."
+                "I couldn't reach the local model just now — it didn't "
+                "answer in time (it may still be loading, or busy on a "
+                "long reply). I can still use local tools: ask for the "
+                "time, a calculation, the weather, a web search, your "
+                "notes or reminders, or the morning briefing. For "
+                "anything else, try me again in a moment."
             )
         )

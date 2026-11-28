@@ -173,7 +173,8 @@ class BrainOfflineTest(unittest.TestCase):
 
     def test_offline_unknown_is_honest(self):
         reply = self.brain.respond("tell me a story about dragons")
-        self.assertIn("offline", reply.lower())
+        self.assertIn("couldn't reach the local model", reply.lower())
+        self.assertNotIn("api key", reply.lower())
 
     def test_memory_saved(self):
         self.brain.respond("calculate 2 + 2")

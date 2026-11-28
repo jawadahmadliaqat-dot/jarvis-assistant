@@ -29,6 +29,7 @@ _BUILDERS = {
         base_url=cfg.provider_settings("ollama").get(
             "base_url", "http://localhost:11434"
         ),
+        timeout=int(cfg.provider_settings("ollama").get("timeout", 600)),
     ),
 }
 

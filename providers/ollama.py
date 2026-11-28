@@ -23,7 +23,7 @@ from providers.openai_compat import (
 class OllamaProvider(BaseProvider):
     name = "ollama"
 
-    def __init__(self, model: str, base_url: str, timeout: int = 120):
+    def __init__(self, model: str, base_url: str, timeout: int = 600):
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
