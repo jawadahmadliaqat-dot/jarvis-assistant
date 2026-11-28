@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Merlin Avatar</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: transparent;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  #status {
+    position: fixed; left: 8px; bottom: 6px;
+    color: #9adbe8; font: 11px system-ui, sans-serif;
+    opacity: 0.8; pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+</style>
+<!--
+  three.js is loaded from a CDN (pinned version, jsdelivr) — demo build only.
+  A production build should vendor three.module.js + GLTFLoader locally so
+  the overlay also works offline.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="status">loading model…</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ---------------------------------------------------------------------------
+// Parameters (supplied by avatar_overlay.py via the page URL query string)
+//   ?model=<file:// URL of the .glb>&state=<idle|listening|speaking>
+// ---------------------------------------------------------------------------
+const params = new URLSearchParams(location.search);
+const modelUrl = params.get('model');
+let currentState = params.get('state') || 'idle';
+
+const statusEl = document.getElementById('status');
+function setStatus(text) { statusEl.textContent = text; }
+
+// ---------------------------------------------------------------------------
+// Presence states — glow colour / intensity / pulse per state.
+// The GLB is static (no animations, no skins), so presence is procedural:
+// slow rotation + gentle bob + this halo.
+// ---------------------------------------------------------------------------
+const STATES = {
+  idle:      { color: new THREE.Color(0x1899b3), intensity: 0.50, pulseSpeed: 1.1, pulseAmp: 0.12 },
+  listening: { color: new THREE.Color(0x2fd4f7), intensity: 1.10, pulseSpeed: 2.6, pulseAmp: 0.30 },
+  speaking:  { color: new THREE.Color(0x8aff80), intensity: 1.00, pulseSpeed: 5.2, pulseAmp: 0.38 }
+};
+if (!STATES[currentState]) currentState = 'idle';
+
+// Called from Python via QWebEnginePage.runJavaScript (see avatar_overlay.py).
+window.merlinSetState = function (state) {
+  if (STATES[state]) currentState = state;
+};
+
+// ---------------------------------------------------------------------------
+// Scene
+// ---------------------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0); // fully transparent — desktop shows through
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.getElementById('app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  38, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.35, 4.4);
+camera.lookAt(0, 1.05, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+keyLight.position.set(2.5, 4, 3);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x66ccff, 0.8);
+rimLight.position.set(-3, 2, -2.5);
+scene.add(rimLight);
+// Soft state-coloured spill light so the halo tints the model a little.
+const stateLight = new THREE.PointLight(0x1899b3, 6, 8);
+stateLight.position.set(0, 0.35, 1.1);
+scene.add(stateLight);
+
+// ---------------------------------------------------------------------------
+// Glow halo under the model: a radial-gradient disc + a thin ring.
+// ---------------------------------------------------------------------------
+function makeGlowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0.0, 'rgba(255,255,255,0.85)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.32)');
+  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+}
+
+const glowMat = new THREE.MeshBasicMaterial({
+  map: makeGlowTexture(),
+  color: STATES[currentState].color.clone(),
+  transparent: true,
+  opacity: 0.5,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false
+});
+const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), glowMat);
+glow.rotation.x = -Math.PI / 2;
+glow.position.y = 0.02;
+scene.add(glow);
+
+const ringMat = new THREE.MeshBasicMaterial({
+  color: STATES[currentState].color.clone(),
+  transparent: true,
+  opacity: 0.55,
+  side: THREE.DoubleSide,
+  depthWrite: false
+});
+const ring = new THREE.Mesh(new THREE.RingGeometry(1.18, 1.26, 64), ringMat);
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.03;
+scene.add(ring);
+
+// ---------------------------------------------------------------------------
+// Load the GLB, normalise it (centre + scale + feet on the ground plane).
+// ---------------------------------------------------------------------------
+const modelGroup = new THREE.Group();
+scene.add(modelGroup);
+
+if (!modelUrl) {
+  setStatus('no model supplied (?model= missing)');
+} else {
+  new GLTFLoader().load(
+    modelUrl,
+    (gltf) => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const s = 2.3 / maxDim;
+      model.scale.setScalar(s);
+      model.position.set(-center.x * s, -box.min.y * s, -center.z * s);
+      modelGroup.add(model);
+      setStatus('');
+      statusEl.style.opacity = '0';
+    },
+    undefined,
+    (err) => {
+      console.error('GLB load failed:', err);
+      setStatus('model failed to load — see console');
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Animation loop: idle rotation, gentle bob, halo pulse per state.
+// ---------------------------------------------------------------------------
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  modelGroup.rotation.y += dt * 0.35;            // slow idle turn
+  modelGroup.position.y = Math.sin(t * 1.3) * 0.045; // gentle bob
+
+  const target = STATES[currentState];
+  glowMat.color.lerp(target.color, 0.07);
+  ringMat.color.lerp(target.color, 0.07);
+  stateLight.color.lerp(target.color, 0.07);
+
+  const pulse = target.intensity *
+    (1 + Math.sin(t * target.pulseSpeed) * target.pulseAmp);
+  glowMat.opacity = THREE.MathUtils.clamp(pulse * 0.75, 0.05, 1.0);
+  ringMat.opacity = THREE.MathUtils.clamp(pulse * 0.8, 0.05, 1.0);
+  const ringScale = 1 + Math.sin(t * target.pulseSpeed) * 0.03 * target.intensity;
+  ring.scale.setScalar(ringScale);
+  stateLight.intensity = 3 + pulse * 5;
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

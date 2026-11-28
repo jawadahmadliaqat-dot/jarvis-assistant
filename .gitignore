@@ -19,6 +19,9 @@ build/
 .pytest_cache/
 .coverage
 
+# 3D models — large binaries, never commit (avatar GLB lives on the user's PC)
+*.glb
+
 # OS
 .DS_Store
 Thumbs.db
